@@ -9,10 +9,9 @@ import (
 	"net/http"
 
 	"github.com/sirupsen/logrus"
-	"github.com/slackhq/simple-kubernetes-webhook/pkg/mutation"
 	"github.com/slackhq/simple-kubernetes-webhook/pkg/validation"
 	admissionv1 "k8s.io/api/admission/v1"
-	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 )
@@ -23,36 +22,17 @@ type Admitter struct {
 	Request *admissionv1.AdmissionRequest
 }
 
-// MutatePodReview takes an admission request and mutates the pod within,
-// it returns an admission review with mutations as a json patch (if any)
-func (a Admitter) MutatePodReview() (*admissionv1.AdmissionReview, error) {
-	pod, err := a.Pod()
-	if err != nil {
-		e := fmt.Sprintf("could not parse pod in admission review request: %v", err)
-		return reviewResponse(a.Request.UID, false, http.StatusBadRequest, e), err
-	}
-
-	m := mutation.NewMutator(a.Logger)
-	patch, err := m.MutatePodPatch(pod)
-	if err != nil {
-		e := fmt.Sprintf("could not mutate pod: %v", err)
-		return reviewResponse(a.Request.UID, false, http.StatusBadRequest, e), err
-	}
-
-	return patchReviewResponse(a.Request.UID, patch)
-}
-
 // MutatePodReview takes an admission request and validates the pod within
 // it returns an admission review
-func (a Admitter) ValidatePodReview() (*admissionv1.AdmissionReview, error) {
-	pod, err := a.Pod()
+func (a Admitter) ValidateDeploymentReview() (*admissionv1.AdmissionReview, error) {
+	dep, err := a.Deployment()
 	if err != nil {
-		e := fmt.Sprintf("could not parse pod in admission review request: %v", err)
+		e := fmt.Sprintf("could not parse deployment in admission review request: %v", err)
 		return reviewResponse(a.Request.UID, false, http.StatusBadRequest, e), err
 	}
 
 	v := validation.NewValidator(a.Logger)
-	val, err := v.ValidatePod(pod)
+	val, err := v.ValidateDeployment(dep)
 	if err != nil {
 		e := fmt.Sprintf("could not validate pod: %v", err)
 		return reviewResponse(a.Request.UID, false, http.StatusBadRequest, e), err
@@ -66,12 +46,12 @@ func (a Admitter) ValidatePodReview() (*admissionv1.AdmissionReview, error) {
 }
 
 // Pod extracts a pod from an admission request
-func (a Admitter) Pod() (*corev1.Pod, error) {
-	if a.Request.Kind.Kind != "Pod" {
-		return nil, fmt.Errorf("only pods are supported here")
+func (a Admitter) Deployment() (*appsv1.Deployment, error) {
+	if a.Request.Kind.Kind != "Deployment" {
+		return nil, fmt.Errorf("only deployments are supported here")
 	}
 
-	p := corev1.Pod{}
+	p := appsv1.Deployment{}
 	if err := json.Unmarshal(a.Request.Object.Raw, &p); err != nil {
 		return nil, err
 	}

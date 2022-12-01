@@ -2,7 +2,7 @@ package validation
 
 import (
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 // Validator is a container for mutation
@@ -16,8 +16,8 @@ func NewValidator(logger *logrus.Entry) *Validator {
 }
 
 // podValidators is an interface used to group functions mutating pods
-type podValidator interface {
-	Validate(*corev1.Pod) (validation, error)
+type deploymentValidator interface {
+	Validate(*appsv1.Deployment) (validation, error)
 	Name() string
 }
 
@@ -27,27 +27,28 @@ type validation struct {
 }
 
 // ValidatePod returns true if a pod is valid
-func (v *Validator) ValidatePod(pod *corev1.Pod) (validation, error) {
-	var podName string
-	if pod.Name != "" {
-		podName = pod.Name
+func (v *Validator) ValidateDeployment(dep *appsv1.Deployment) (validation, error) {
+	var deploymentName string
+	if dep.Name != "" {
+		deploymentName = dep.Name
 	} else {
-		if pod.ObjectMeta.GenerateName != "" {
-			podName = pod.ObjectMeta.GenerateName
+		if dep.ObjectMeta.GenerateName != "" {
+			deploymentName = dep.ObjectMeta.GenerateName
 		}
 	}
-	log := logrus.WithField("pod_name", podName)
+	log := logrus.WithField("dep_name", deploymentName)
 	log.Print("delete me")
 
 	// list of all validations to be applied to the pod
-	validations := []podValidator{
+	validations := []deploymentValidator{
 		nameValidator{v.Logger},
+		replicasValidator{v.Logger},
 	}
 
 	// apply all validations
 	for _, v := range validations {
 		var err error
-		vp, err := v.Validate(pod)
+		vp, err := v.Validate(dep)
 		if err != nil {
 			return validation{Valid: false, Reason: err.Error()}, err
 		}

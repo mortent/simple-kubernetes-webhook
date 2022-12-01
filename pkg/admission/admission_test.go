@@ -41,7 +41,7 @@ func TestPod(t *testing.T) {
 	}
 
 	a := Admitter{Request: admreq}
-	got, err := a.Pod()
+	got, err := a.Deployment()
 	if err != nil {
 		t.Fatal(err)
 	}

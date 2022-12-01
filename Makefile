@@ -12,7 +12,8 @@ build:
 .PHONY: docker-build
 docker-build:
 	@echo "\n📦 Building simple-kubernetes-webhook Docker image..."
-	docker build -t simple-kubernetes-webhook:latest .
+	DOCKER_BUILDKIT=1 docker build -t gcr.io/mortent-dev-kube/simple-kubernetes-webhook:latest .
+	docker push gcr.io/mortent-dev-kube/simple-kubernetes-webhook:latest
 
 # From this point `kind` is required
 .PHONY: cluster

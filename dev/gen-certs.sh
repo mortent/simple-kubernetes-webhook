@@ -23,7 +23,7 @@ kubectl create secret tls simple-kubernetes-webhook-tls \
   --cert=server.crt \
   --key=server.key \
   --dry-run=client -o yaml \
-  > ./manifests/webhook/webhook.tls.secret.yaml
+  > ./dev/manifests/webhook/webhook.tls.secret.yaml
 
 echo
 echo ">> MutatingWebhookConfiguration caBundle:"

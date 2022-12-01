@@ -20,8 +20,8 @@ spec:
           operator: Exists
           effect: NoSchedule
       containers:
-        - image: simple-kubernetes-webhook:latest
-          imagePullPolicy: Never
+        - image: gcr.io/mortent-dev-kube/simple-kubernetes-webhook:latest
+          imagePullPolicy: Always
           name: simple-kubernetes-webhook
           env:
             - name: TLS
