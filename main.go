@@ -17,6 +17,7 @@ func main() {
 
 	// handle our core application
 	http.HandleFunc("/validate-deployments", ServeValidateDeployments)
+	http.HandleFunc("/mutate-statefulsets", ServeMutateStatefulSets)
 	http.HandleFunc("/health", ServeHealth)
 
 	// start the server
@@ -57,6 +58,44 @@ func ServeValidateDeployments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	out, err := adm.ValidateDeploymentReview()
+	if err != nil {
+		e := fmt.Sprintf("could not generate admission response: %v", err)
+		logger.Error(e)
+		http.Error(w, e, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	jout, err := json.Marshal(out)
+	if err != nil {
+		e := fmt.Sprintf("could not parse admission response: %v", err)
+		logger.Error(e)
+		http.Error(w, e, http.StatusInternalServerError)
+		return
+	}
+
+	logger.Debug("sending response")
+	logger.Debugf("%s", jout)
+	fmt.Fprintf(w, "%s", jout)
+}
+
+func ServeMutateStatefulSets(w http.ResponseWriter, r *http.Request) {
+	logger := logrus.WithField("uri", r.RequestURI)
+	logger.Debug("received mutation request")
+
+	in, err := parseRequest(*r)
+	if err != nil {
+		logger.Error(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	adm := admission.Admitter{
+		Logger:  logger,
+		Request: in.Request,
+	}
+
+	out, err := adm.MutateStatefulSetReview()
 	if err != nil {
 		e := fmt.Sprintf("could not generate admission response: %v", err)
 		logger.Error(e)

@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/sirupsen/logrus"
+	"github.com/slackhq/simple-kubernetes-webhook/pkg/mutation"
 	"github.com/slackhq/simple-kubernetes-webhook/pkg/validation"
 	admissionv1 "k8s.io/api/admission/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -20,6 +21,25 @@ import (
 type Admitter struct {
 	Logger  *logrus.Entry
 	Request *admissionv1.AdmissionRequest
+}
+
+// MutatePodReview takes an admission request and mutates the pod within,
+// it returns an admission review with mutations as a json patch (if any)
+func (a Admitter) MutateStatefulSetReview() (*admissionv1.AdmissionReview, error) {
+	sts, err := a.StatefulSet()
+	if err != nil {
+		e := fmt.Sprintf("could not parse pod in admission review request: %v", err)
+		return reviewResponse(a.Request.UID, false, http.StatusBadRequest, e), err
+	}
+
+	m := mutation.NewMutator(a.Logger)
+	patch, err := m.MutateStatefulSetPatch(sts)
+	if err != nil {
+		e := fmt.Sprintf("could not mutate pod: %v", err)
+		return reviewResponse(a.Request.UID, false, http.StatusBadRequest, e), err
+	}
+
+	return patchReviewResponse(a.Request.UID, patch)
 }
 
 // MutatePodReview takes an admission request and validates the pod within
@@ -52,6 +72,19 @@ func (a Admitter) Deployment() (*appsv1.Deployment, error) {
 	}
 
 	p := appsv1.Deployment{}
+	if err := json.Unmarshal(a.Request.Object.Raw, &p); err != nil {
+		return nil, err
+	}
+
+	return &p, nil
+}
+
+func (a Admitter) StatefulSet() (*appsv1.StatefulSet, error) {
+	if a.Request.Kind.Kind != "StatefulSet" {
+		return nil, fmt.Errorf("only statefulsets are supported here")
+	}
+
+	p := appsv1.StatefulSet{}
 	if err := json.Unmarshal(a.Request.Object.Raw, &p); err != nil {
 		return nil, err
 	}
